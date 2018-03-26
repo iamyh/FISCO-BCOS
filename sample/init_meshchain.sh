@@ -225,39 +225,21 @@ function generateProxyConfig()
 
     cd proxyConfig
     routeChainIp=${ipArr[0]}
-    hotChainIp=${ipArr[1]}
 
     declare -i index=0
-    setList=""
 
     sed -i 's/<\/beans>//g' applicationContext.xml
     sed -i 's/${routeIp}/'${routeChainIp}'/g' applicationContext.xml
     sed -i 's/${routeChannelPort}/'$defaultChannelPort'/g' applicationContext.xml
 
-    if [ ${routeChainIp}"" = ${hotChainIp}"" ];then
-        sed -i 's/${hotIp}/'${hotChainIp}'/g' applicationContext.xml
-        declare -i hotPort=defaultChannelPort+${numNode}
-        sed -i 's/${hotChannelPort}/'${hotPort}'/g' applicationContext.xml
-    else
-        sed -i 's/${hotIp}/'${hotChainIp}'/g' applicationContext.xml
-        sed -i 's/${hotChannelPort}/'$defaultChannelPort'/g' applicationContext.xml
-    fi
-
     declare -i len=${#ipArr[@]}-1
     declare -i index=0
-    declare -i first=0
 
-    for ip in ${ipArr[@]:2:${len}}
+    for ip in ${ipArr[@]:1:${len}}
     do
-        if [ ${ip} = ${routeChainIp} -o ${ip} = ${hotChainIp} ];then
-            if [ ${routeChainIp} = ${hotChainIp} -a ${first} = 0 ];then
-                first=1
-                channelPortDictCount[${ip}]=`expr ${channelPortDictCount[${ip}]} - 2`
-                declare -i lastPort=`expr ${channelPortDict[${ip}]} - ${numNode} \* ${channelPortDictCount[${ip}]}`
-            else
-                channelPortDictCount[${ip}]=`expr ${channelPortDictCount[${ip}]} - 1`
-                declare -i lastPort=`expr ${channelPortDict[${ip}]} - ${numNode} \* ${channelPortDictCount[${ip}]}`
-            fi
+        if [ ${ip} = ${routeChainIp} ];then
+            channelPortDictCount[${ip}]=`expr ${channelPortDictCount[${ip}]} - 1`
+            declare -i lastPort=`expr ${channelPortDict[${ip}]} - ${numNode} \* ${channelPortDictCount[${ip}]}`
         else
             declare -i lastPort=`expr ${channelPortDict[${ip}]} - ${numNode} \* ${channelPortDictCount[${ip}]}`
             channelPortDictCount[${ip}]=`expr ${channelPortDictCount[${ip}]} - 1`
@@ -291,20 +273,17 @@ function generateProxyConfig()
                 </property>
             </bean>
         ' >> applicationContext.xml
-        setList=${setList}"set"${index}"Service,"
         index=${index}+1
     done
 
     echo "</beans>" >> applicationContext.xml
-    declare -i len=${#setList}-1
-    sed -i 's/${setList}/'${setList:0:${len}}'/g' config.xml
 
     declare -i index=0
     routes="["
     for ip in ${ipArr[@]}
     do
-        if [ ${index} -ge 2 ];then
-             declare -i setIdx=${index}-2
+        if [ ${index} -ge 1 ];then
+             declare -i setIdx=${index}-1
              routes=${routes}'{
                     "set_name":"set'${setIdx}'Service",
                     "set_warn_num":2,
@@ -330,10 +309,8 @@ for ip in ${ipArr[@]}
 do
     if [ ${index} = 0 ];then
         generateChain ${numNode} ${ip} "route"
-    elif [ ${index} = 1 ];then
-        generateChain ${numNode} ${ip} "hot"
     else
-        declare -i setIdx=${index}-2
+        declare -i setIdx=${index}-1
         generateChain ${numNode} ${ip} "set"${setIdx}
     fi
     index=${index}+1
